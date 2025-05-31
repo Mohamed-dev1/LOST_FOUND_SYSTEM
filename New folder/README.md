@@ -30,25 +30,6 @@ To compile the dist files you need Node.js/npm, clone/download the repo then:
 3. `npm run production` (compile css/js files)
 
 
-## Contributing
-
-- Highly welcome.
-- For your extra reference check [AdminLTE v4 Contribution Guide](https://github.com/ColorlibHQ/AdminLTE#contributing)
-- First thing first, you should have bit knowledge about NodeJS.
-- Github Knowledge.
-- Install NodeJS LTS version.
-- Clone this Repository to your machine and change to `master` branch.
-- Go to Cloned Folder.
-- In cli/bash run `npm install` it will install dependency from `package.json`.
-- After installation completes, run `npm run dev`
-- Cool, Send urs changes in PR to `master` branch.
-
-## Sponsorship
-
-Support AdminLTE development by becoming a sponsor.
-[Github Sponsors](https://github.com/sponsors/danny007in) or
-[PayPal](https://www.paypal.me/daniel007in)
-
 ## License
 
 AdminLTE is an open source project by [AdminLTE.io](https://adminlte.io) that is licensed under [MIT](https://opensource.org/licenses/MIT).
