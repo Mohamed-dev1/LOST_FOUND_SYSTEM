@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Sign Up - Lost & Found Portal</title>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f2f2;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      width: 350px;
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #333;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      color: #333;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 15px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .login-link {
+      margin-top: 15px;
+      text-align: center;
+      font-size: 14px;
+    }
+
+    .login-link a {
+      color: #007bff;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Create Account</h2>
+    <form id="signup-form">
+      <label for="email">University Email</label>
+      <input type="email" id="email" required placeholder="your.email@umt.edu" />
+
+      <label for="password">Password</label>
+      <input type="password" id="password" required placeholder="Min 8 chars, 1 number" />
+
+      <button type="submit">Sign Up</button>
+    </form>
+    <div class="login-link">
+      Already have an account? <a href="login.html">Login</a>
+    </div>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+
+  <script>
+    // Firebase Config (Replace with your actual values)
+    const firebaseConfig = {
+      apiKey: "AIzaSyDdhlpiAOP8saanY34LbTPPvWHIzQwtnVw",
+      authDomain: "lost-found-umt.firebaseapp.com",
+      projectId: "lost-found-umt",
+      storageBucket: "lost-found-umt.appspot.com",
+      messagingSenderId: "269267738834",
+      appId: "1:269267738834:web:cd159339ecdc2d75ee4d0b"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+
+    document.getElementById("signup-form").addEventListener("submit", function (e) {
+      e.preventDefault();
+
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+
+      const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
+      if (!email.endsWith("@gmail.com") && !email.endsWith("@umt.edu")) {
+        return Swal.fire("Invalid Email", "Only @umt.edu emails are allowed.", "warning");
+      }
+
+      if (!passwordRegex.test(password)) {
+        return Swal.fire("Weak Password", "Password must be 8+ chars with at least 1 number.", "error");
+      }
+
+      auth.createUserWithEmailAndPassword(email, password)
+        .then((userCredential) => {
+          userCredential.user.sendEmailVerification().then(() => {
+            Swal.fire(
+              "Verification Sent",
+              "An OTP link was sent to your email. Please verify it before logging in.",
+              "success"
+            );
+          });
+        })
+        .catch((error) => {
+          if (error.code === "auth/email-already-in-use") {
+            Swal.fire("Email Exists", "This email is already registered.", "info");
+          } else {
+            Swal.fire("Error", error.message, "error");
+          }
+        });
+    });
+  </script>
+</body>
+</html>

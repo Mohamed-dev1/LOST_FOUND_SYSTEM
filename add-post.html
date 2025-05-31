@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Add Post - UMT Lost & Found</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+</head>
+<body class="hold-transition sidebar-mini p-4">
+  <h2>Add New Lost/Found Item</h2>
+
+  <form id="addPostForm">
+    <div class="form-group">
+      <label for="itemName">Item Name</label>
+      <input id="itemName" type="text" class="form-control" required />
+    </div>
+
+    <div class="form-group">
+      <label for="description">Description</label>
+      <textarea id="description" class="form-control" required></textarea>
+    </div>
+
+    <div class="form-group">
+      <label for="imageFile">Upload Image</label>
+      <input id="imageFile" type="file" accept="image/*" class="form-control" required />
+    </div>
+
+    <button type="submit" class="btn btn-primary">Submit Post</button>
+  </form>
+
+  <script>
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyDdhlpiAOP8saanY34LbTPPvWHIzQwtnVw",
+      authDomain: "lost-found-umt.firebaseapp.com",
+      projectId: "lost-found-umt",
+      storageBucket: "lost-found-umt.appspot.com",
+      messagingSenderId: "269267738834",
+      appId: "1:269267738834:web:cd159339ecdc2d75ee4d0b"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // Cloudinary config
+    const CLOUD_NAME = 'your-cloud-name';
+    const UPLOAD_PRESET = 'your-upload-preset';
+
+    document.getElementById('addPostForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const user = auth.currentUser;
+      if (!user) {
+        Swal.fire('Error', 'Please login first.', 'error');
+        return;
+      }
+
+      const itemName = document.getElementById('itemName').value.trim();
+      const description = document.getElementById('description').value.trim();
+      const imageFile = document.getElementById('imageFile').files[0];
+
+      if (!itemName || !description || !imageFile) {
+        Swal.fire('Error', 'Please fill all fields and select an image.', 'error');
+        return;
+      }
+
+      Swal.fire({
+        title: 'Uploading Image...',
+        didOpen: () => Swal.showLoading()
+      });
+
+      // Upload image to Cloudinary
+      const formData = new FormData();
+      formData.append('file', imageFile);
+      formData.append('upload_preset', UPLOAD_PRESET);
+
+      try {
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/upload`, {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+
+        if (!data.secure_url) throw new Error('Upload failed');
+
+        // Add post to Firestore
+        await db.collection('posts').add({
+          itemName,
+          description,
+          imageURL: data.secure_url,
+          status: 'pending',
+          userEmail: user.email,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          ownerFound: false
+        });
+
+        Swal.fire('Success', 'Post submitted for approval!', 'success');
+
+        document.getElementById('addPostForm').reset();
+      } catch (err) {
+        Swal.fire('Error', 'Failed to upload image or save post: ' + err.message, 'error');
+      }
+    });
+  </script>
+</body>
+</html>

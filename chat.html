@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lost & Found - Chat</title>
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.1/dist/css/bootstrap.min.css"
+  />
+  <style>
+    .chat-box {
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin-top: 10px;
+      max-height: 250px;
+      overflow-y: auto;
+      background: #f9f9f9;
+    }
+    .chat-message {
+      padding: 5px;
+      margin-bottom: 5px;
+      border-radius: 4px;
+      max-width: 75%;
+      word-wrap: break-word;
+    }
+    .chat-message.sent {
+      background-color: #d1e7dd;
+      text-align: right;
+      margin-left: auto;
+    }
+    .chat-message.received {
+      background-color: #f8d7da;
+      text-align: left;
+      margin-right: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="container mt-4">
+    <h2>Approved Posts (Chat Enabled)</h2>
+    <div id="postsContainer" class="row"></div>
+  </div>
+
+  <footer class="text-center mt-5 mb-3">
+    <small>&copy; 2025 Lost & Found UMT Campus</small>
+  </footer>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
+  <script>
+    // Your Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyDdhlpiAOP8saanY34LbTPPvWHIzQwtnVw",
+      authDomain: "lost-found-umt.firebaseapp.com",
+      projectId: "lost-found-umt",
+      storageBucket: "lost-found-umt.appspot.com",
+      messagingSenderId: "269267738834",
+      appId: "1:269267738834:web:cd159339ecdc2d75ee4d0b"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+
+    let currentUser = null;
+
+    auth.onAuthStateChanged(user => {
+      if (!user) {
+        alert("Please log in first.");
+        // redirect to login page if needed
+        return;
+      }
+      currentUser = user;
+      loadApprovedPosts();
+    });
+
+    // Load all approved posts (including the current user's posts)
+    async function loadApprovedPosts() {
+      const container = document.getElementById("postsContainer");
+      container.innerHTML = "<p>Loading approved posts...</p>";
+
+      try {
+        // Query approved posts ordered by createdAt descending
+        const snapshot = await db.collection("posts")
+          .where("status", "==", "approved")
+          .orderBy("createdAt", "desc")
+          .get();
+
+        if (snapshot.empty) {
+          container.innerHTML = "<p>No approved posts found.</p>";
+          return;
+        }
+
+        container.innerHTML = "";
+
+        snapshot.docs.forEach(doc => {
+          const post = doc.data();
+
+          // Create a card for each post
+          const card = document.createElement("div");
+          card.className = "col-md-4";
+
+          card.innerHTML = `
+            <div class="card mb-3">
+              <img src="${post.imageURL || 'https://via.placeholder.com/300'}" class="card-img-top" alt="Item Image" />
+              <div class="card-body">
+                <h5 class="card-title">${escapeHtml(post.itemName)}</h5>
+                <p class="card-text">${escapeHtml(post.description)}</p>
+                <p><small>Posted by: ${escapeHtml(post.userEmail)}</small></p>
+                <button class="btn btn-primary btn-sm" onclick="toggleChat('${doc.id}')">Chat</button>
+                <div id="chat-${doc.id}" class="chat-box" style="display:none;">
+                  <div id="messages-${doc.id}" style="max-height:150px; overflow-y:auto; margin-bottom:8px;"></div>
+                  <div class="input-group">
+                    <input type="text" id="input-${doc.id}" class="form-control" placeholder="Type your message..." />
+                    <div class="input-group-append">
+                      <button class="btn btn-success" onclick="sendMessage('${doc.id}', '${post.userEmail}')">Send</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+
+          container.appendChild(card);
+
+          // Start listening for chat messages for this post
+          listenForMessages(doc.id);
+        });
+
+      } catch (error) {
+        container.innerHTML = `<p>Error loading posts: ${escapeHtml(error.message)}</p>`;
+      }
+    }
+
+    // Toggle chat box visibility
+    function toggleChat(postId) {
+      const chatDiv = document.getElementById(`chat-${postId}`);
+      if (chatDiv.style.display === "none") {
+        chatDiv.style.display = "block";
+      } else {
+        chatDiv.style.display = "none";
+      }
+    }
+
+    // Listen for chat messages in real time
+    function listenForMessages(postId) {
+      const messagesDiv = document.getElementById(`messages-${postId}`);
+      db.collection("posts").doc(postId).collection("messages")
+        .orderBy("createdAt")
+        .onSnapshot(snapshot => {
+          messagesDiv.innerHTML = ""; // clear old messages
+          snapshot.forEach(doc => {
+            const msg = doc.data();
+            const isSentByCurrentUser = msg.senderEmail === currentUser.email;
+
+            const msgDiv = document.createElement("div");
+            msgDiv.className = "chat-message " + (isSentByCurrentUser ? "sent" : "received");
+
+            // Format message: you can also add timestamps if you want
+            msgDiv.textContent = msg.text;
+
+            messagesDiv.appendChild(msgDiv);
+          });
+          // Scroll to bottom
+          messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        });
+    }
+
+    // Send a new chat message
+    async function sendMessage(postId, ownerEmail) {
+      const input = document.getElementById(`input-${postId}`);
+      const text = input.value.trim();
+      if (!text) return;
+
+      try {
+        await db.collection("posts").doc(postId).collection("messages").add({
+          text,
+          senderEmail: currentUser.email,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        input.value = "";
+      } catch (error) {
+        alert("Failed to send message: " + error.message);
+      }
+    }
+
+    // Escape HTML for safety
+    function escapeHtml(text) {
+      if (!text) return "";
+      return text.replace(/[&<>"']/g, function (m) {
+        return {
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;'
+        }[m];
+      });
+    }
+  </script>
+</body>
+</html>

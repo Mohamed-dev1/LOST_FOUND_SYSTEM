@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>My Approved Posts - Lost & Found</title>
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.1/dist/css/bootstrap.min.css"
+  />
+</head>
+<body>
+  <div class="container mt-4">
+    <h2>My Approved Posts</h2>
+    <div id="myApprovedPosts" class="row"></div>
+  </div>
+
+  <footer class="text-center mt-5 mb-3">
+    <small>&copy; 2025 Lost & Found UMT Campus</small>
+  </footer>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
+  <script>
+    // Initialize Firebase (replace with your config)
+    const firebaseConfig = {
+      apiKey: "AIzaSyDdhlpiAOP8saanY34LbTPPvWHIzQwtnVw",
+      authDomain: "lost-found-umt.firebaseapp.com",
+      projectId: "lost-found-umt",
+      storageBucket: "lost-found-umt.appspot.com",
+      messagingSenderId: "269267738834",
+      appId: "1:269267738834:web:cd159339ecdc2d75ee4d0b"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+
+    let currentUser = null;
+
+    auth.onAuthStateChanged(user => {
+      if (!user) {
+        alert("Please log in first.");
+        // Redirect or show login
+        return;
+      }
+      currentUser = user;
+      loadMyPosts();
+    });
+
+    async function loadMyPosts() {
+      const container = document.getElementById("myApprovedPosts");
+      container.innerHTML = "<p>Loading your approved posts...</p>";
+
+      try {
+        const snapshot = await db.collection("posts")
+          .where("status", "==", "approved")
+          .where("userEmail", "==", currentUser.email)
+          .orderBy("createdAt", "desc")
+          .get();
+
+        if (snapshot.empty) {
+          container.innerHTML = "<p>You have no approved posts.</p>";
+          return;
+        }
+
+        container.innerHTML = "";
+        snapshot.forEach(doc => {
+          const post = doc.data();
+          const ownerFoundLabel = post.ownerFound
+            ? '<span class="badge badge-success">Owner Found</span>'
+            : '<span class="badge badge-warning">Owner Not Found</span>';
+
+          const card = document.createElement("div");
+          card.className = "col-md-4";
+          card.innerHTML = `
+            <div class="card mb-3">
+              <img src="${post.imageURL || "https://via.placeholder.com/300"}" class="card-img-top" alt="Item Image" />
+              <div class="card-body">
+                <h5 class="card-title">${escapeHtml(post.itemName)}</h5>
+                <p class="card-text">${escapeHtml(post.description)}</p>
+                <p>Status: ${ownerFoundLabel}</p>
+                <button class="btn btn-danger btn-sm mr-2" onclick="removeMyPost('${doc.id}')">Remove</button>
+                <button class="btn btn-info btn-sm" onclick="toggleOwnerFound('${doc.id}', ${post.ownerFound})">
+                  ${post.ownerFound ? "Mark as Not Found" : "Mark as Found"}
+                </button>
+              </div>
+            </div>
+          `;
+          container.appendChild(card);
+        });
+      } catch (err) {
+        container.innerHTML = `<p>Error loading posts: ${escapeHtml(err.message)}</p>`;
+      }
+    }
+
+    window.removeMyPost = async (postId) => {
+      if (!confirm("Are you sure you want to remove this post?")) return;
+      try {
+        await db.collection("posts").doc(postId).delete();
+        alert("Post removed.");
+        loadMyPosts();
+      } catch (err) {
+        alert("Failed to remove post: " + err.message);
+      }
+    };
+
+    window.toggleOwnerFound = async (postId, currentStatus) => {
+      try {
+        await db.collection("posts").doc(postId).update({
+          ownerFound: !currentStatus,
+        });
+        loadMyPosts();
+      } catch (err) {
+        alert("Failed to update status: " + err.message);
+      }
+    };
+
+    // Simple HTML escape function to avoid XSS
+    function escapeHtml(text) {
+      if (!text) return "";
+      return text.replace(/[&<>"']/g, m => {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m] || m;
+      });
+    }
+  </script>
+</body>
+</html>
